@@ -38,10 +38,9 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
-    'mainapp', 
-    'django_celery_results',
-    'django_celery_beat',
-    'send_mail_app'
+    'tasks_app', 
+    "django_celery_results",
+    "django_celery_beat"
 ]
 
 MIDDLEWARE = [
@@ -110,7 +109,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC' #Asia/Kolkata
+TIME_ZONE = 'America/Monterrey'
 
 USE_I18N = True
 
@@ -136,13 +135,16 @@ CELERY_BROKER_URL = 'redis://127.0.0.1:6379'
 CELERY_ACCEPT_CONTENT = ['application/json']
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TASK_SERIALIZER = 'json'
-CELERY_TIMEZONE = 'Asia/Kolkata'
+CELERY_TIMEZONE = 'America/Monterrey'
 
-CELERY_RESULT_BACKEND = 'django-db'
+CELERY_RESULT_BACKEND = 'redis://localhost:6379'
 
 #CELERY BEAT
-CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
-
+# CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+CELERY_BEAT_SCHEDULER = 'redbeat.RedBeatScheduler'
+redbeat_redis_url = "redis://localhost:6379/1"
+redbeat_lock_key = None
+# RED_BEAT_REDIS_URL = 'redis://localhost:6379/0'
 # SMTP Settings
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_USE_TLS = True
