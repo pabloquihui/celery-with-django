@@ -6,6 +6,9 @@ from django.utils import timezone
 from datetime import timedelta
 import logging
 import inspect
+from django_celery_project.celery import app
+import redis
+from tasks_app.models import ScheduledTask, TaskExecution
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -14,6 +17,17 @@ formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 file_handler = logging.FileHandler('reminder.log')
 file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
+
+redis_conn = redis.StrictRedis(host='localhost', port=6379, db=0)
+
+def execution_data(id, status):
+    current_datetime = timezone.localtime()
+    execution_date = current_datetime.strftime('%d/%m/%Y')
+    execution_time = current_datetime.strftime('%H:%M:%S')
+    scheduled_task = ScheduledTask.objects.get(task_id=id)
+    TaskExecution.objects.create(scheduled_task=scheduled_task, task_name=scheduled_task.custom_name, task_id=id, 
+                                 periodic_name=scheduled_task.task_name, execution_type=scheduled_task.task_type, 
+                                 execution_date=execution_date, execution_time=execution_time, status=status)
 
 @shared_task(bind=True)
 def send_mail_func(self):
@@ -44,7 +58,37 @@ def log_reminder(message):
     logger.info(message)
 
 @shared_task(bind=True)
-def periodic_task(self, *args):
+def periodic_task(self, response_message=None, *args):
     # Do something periodically
-    logger.info("This is a periodic task.")
+    logger.info(f"Response: {response_message}")
     
+
+
+@shared_task(bind=True)
+def probando_task(self, response_message, task_id, *args, **kwargs):
+    try:
+        logger.info(f"probando ejecucion id: {task_id}")
+        task_status = "SUCCESS"
+    except Exception:
+        logger.error(Exception)
+        task_status = "Error"
+    
+    execution_data(id=task_id, status=task_status)
+    logger.info(f"probando ejecucion")
+    
+
+# @app.on_after_configure.connect
+# def setup_periodic_tasks(sender, **kwargs):
+#     # Define a periodic task to check for task updates
+#     sender.add_periodic_task(60.0, check_task_updates.s())
+
+# @app.task(bind=True)
+# def check_task_updates(self):
+#     # Retrieve task definitions from Redis
+#     task_definitions = redis_conn.hgetall('tasks')
+
+#     # Register or update Celery tasks based on task definitions
+#     for task_name, task_code in task_definitions.items():
+#         task_code = task_code.decode('utf-8')  # Convert bytes to string
+#         task_func = app.tasks.get(task_name.decode('utf-8')) or app.task(shared=True)(eval(task_code))
+#         task_func.name = task_name.decode('utf-8')  # Set task name
