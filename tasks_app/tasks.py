@@ -22,12 +22,13 @@ redis_conn = redis.StrictRedis(host='localhost', port=6379, db=0)
 
 def execution_data(id, status):
     current_datetime = timezone.localtime()
-    execution_date = current_datetime.strftime('%d/%m/%Y')
+    execution_date = current_datetime.strftime('%Y-%m-%d')
     execution_time = current_datetime.strftime('%H:%M:%S')
-    scheduled_task = ScheduledTask.objects.get(task_id=id)
-    TaskExecution.objects.create(scheduled_task=scheduled_task, task_name=scheduled_task.custom_name, task_id=id, 
-                                 periodic_name=scheduled_task.task_name, execution_type=scheduled_task.task_type, 
-                                 execution_date=execution_date, execution_time=execution_time, status=status)
+    task = ScheduledTask.objects.get(task_id=id)
+    TaskExecution.objects.create(scheduled_task=task, task_id=id, 
+                                 execution_date=execution_date, 
+                                 execution_time=execution_time, 
+                                 status=status)
 
 @shared_task(bind=True)
 def send_mail_func(self):
@@ -68,6 +69,7 @@ def periodic_task(self, response_message=None, *args):
 def probando_task(self, response_message, task_id, *args, **kwargs):
     try:
         logger.info(f"probando ejecucion id: {task_id}")
+        logger.info(f"Mensaje: {response_message}")
         task_status = "SUCCESS"
     except Exception:
         logger.error(Exception)

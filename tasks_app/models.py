@@ -81,6 +81,7 @@ class ScheduledTask(models.Model):
             
     def delete(self, *args, **kwargs):
         """Override the delete method to call delete_from_redbeat."""
+        TaskExecution.objects.filter(scheduled_task=self).update(scheduled_task=None)
         self.delete_from_redbeat()
         super().delete(*args, **kwargs)
         
@@ -94,21 +95,43 @@ class ScheduledTask(models.Model):
         ]
         return ":".join(part for part in parts if part)
     
+# class TaskExecution(models.Model):
+#     scheduled_task = models.ForeignKey(ScheduledTask, on_delete=models.DO_NOTHING, null=True)
+#     task_name = scheduled_task.custom_name
+#     # task_name = models.CharField(max_length=255, default="")
+#     task_id = models.CharField(max_length=255, default="")
+#     periodic_name = scheduled_task.task_name
+#     execution_type = scheduled_task.task_type
+#     # periodic_name = models.CharField(max_length=255, default="")
+#     # execution_type = models.CharField(max_length=255, default="")
+#     execution_date = models.DateField(default=timezone)
+#     execution_time = models.TimeField(default=timezone)
+#     status = models.CharField(max_length=255, default="")
+#     # Add more fields as needed
+    
+#     class Meta:
+#         verbose_name = "Task Execution"
+#         verbose_name_plural = "Task Executions"
+
 class TaskExecution(models.Model):
-    scheduled_task = models.ForeignKey(ScheduledTask, on_delete=models.CASCADE)
-    task_name = models.CharField(max_length=255, default="")
+    scheduled_task = models.ForeignKey(ScheduledTask, on_delete=models.DO_NOTHING, null=True)
     task_id = models.CharField(max_length=255, default="")
+    execution_date = models.DateField(default=timezone.now)
+    execution_time = models.TimeField(default=timezone.now)
+    status = models.CharField(max_length=255, default="")
+
+    # Add fields to store derived values
+    task_name = models.CharField(max_length=255, default="")
     periodic_name = models.CharField(max_length=255, default="")
     execution_type = models.CharField(max_length=255, default="")
-    execution_date = models.DateField(default=timezone)
-    execution_time = models.TimeField(default=timezone)
-    status = models.CharField(max_length=255, default="")
-    # Add more fields as needed
-    
-    class Meta:
-        verbose_name = "Task Execution"
-        verbose_name_plural = "Task Executions"
 
+    def save(self, *args, **kwargs):
+        if self.scheduled_task:
+            # Populate derived values from ScheduledTask
+            self.task_name = self.scheduled_task.custom_name
+            self.periodic_name = self.scheduled_task.task_name
+            self.execution_type = self.scheduled_task.task_type
+        super().save(*args, **kwargs)
 
 
 class Tasks(models.Model):

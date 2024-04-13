@@ -17,9 +17,9 @@ class TasksAdmin(admin.ModelAdmin):
         obj.create_task()
 
 class TaskExecutionAdmin(admin.ModelAdmin):
-    list_display = ('task_name', 'task_id', 'periodic_name', 'execution_date', 'execution_time', 'status', 'execution_type')
-    list_filter = ('task_id', 'task_name', 'execution_date', 'execution_time', 'status', 'execution_type')
-    search_fields = ('task_name', 'execution_date', 'execution_time', 'status', 'execution_type')
+    list_display = ['task_name', 'task_id', 'periodic_name', 'execution_type', 'execution_date', 'execution_time', 'status']
+    readonly_fields = ['task_name', 'task_id', 'periodic_name', 'execution_type', 'execution_date', 'execution_time', 'status']
+    list_filter = ('task_id', 'task_name', 'periodic_name', 'execution_date', 'execution_time', 'status', 'execution_type')
 
 admin.site.register(ScheduledTask, ScheduledTaskAdmin)
 admin.site.register(Tasks, TasksAdmin)
