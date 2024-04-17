@@ -17,7 +17,11 @@ class ScheduledTask(models.Model):
 
     task_name = models.CharField(max_length=255)
     custom_name = models.CharField(max_length=255, default='custom')
-    response_message = models.CharField(max_length=1024, blank=True)
+    # response_message = models.CharField(max_length=1024, blank=True)
+    chat_id = models.CharField(max_length=255, blank=True)
+    template_name = models.CharField(max_length=255, blank=True)
+    template_namespace = models.CharField(max_length=255, blank=True)
+    localizable_params = models.CharField(max_length=255, blank=True)
     task_type = models.CharField(max_length=10, choices=TASK_TYPE_CHOICES, default='interval')
     interval_seconds = models.IntegerField(default=60)
     crontab_minute = models.CharField(max_length=64, blank=True, null=True, help_text="0-59, *, */2, 0-30/5, etc.", default="*")
@@ -49,7 +53,7 @@ class ScheduledTask(models.Model):
                 name=self.custom_name,
                 task=task_path,
                 schedule=schedule,
-                args=[self.response_message, task_id_str]
+                args=[self.chat_id, self.template_name, self.template_namespace, self.localizable_params, task_id_str]
             )
             entry.save()
             self.redbeat_key = entry.key  # Save the RedBeat key
@@ -57,6 +61,7 @@ class ScheduledTask(models.Model):
             logging.info('Task created successfully')
         except Exception as e:
             logging.error("Failed to save task to RedBeat: %s", e)
+
 
     def update_interval(self, new_interval_seconds):
         try:

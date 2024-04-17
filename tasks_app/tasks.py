@@ -9,6 +9,7 @@ import inspect
 from django_celery_project.celery import app
 import redis
 from tasks_app.models import ScheduledTask, TaskExecution
+import requests
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -78,6 +79,34 @@ def probando_task(self, response_message, task_id, *args, **kwargs):
     execution_data(id=task_id, status=task_status)
     logger.info(f"probando ejecucion")
     
+    
+@shared_task(bind=True)
+def template_msg_task(self, chat_id, template_name, template_namespace, localizable_params, task_id, *args, **kwargs):
+    
+    try:
+        logger.info(f"Trying execution: {task_id}")
+        url = 'http://127.0.0.1:8000/trigger-send-template-message/'
+        data = {
+            'chat': int(chat_id),
+            'name_space': str(template_namespace),
+            'element_name': str(template_name),
+            'language_code': 'es_mx',
+            'localizable_params': []
+        }
+
+        response = requests.post(url, data=data)
+        logger.info(f"The response of sending the message is: {response.status_code}") 
+        if response.status_code == 200:
+            logger.info('Endpoint called sucessfully')
+            task_status = "SUCCESS"
+        else:
+            err = response.message
+            logger.error(f'Error when calling the endpoint: {err}')
+            task_status = 'Error'
+    except Exception:
+        logger.error(f"Error trying execution: {task_id}, with exception: {Exception}")
+        task_status = "Error"   
+    execution_data(id=task_id, status=task_status)
 
 # @app.on_after_configure.connect
 # def setup_periodic_tasks(sender, **kwargs):
