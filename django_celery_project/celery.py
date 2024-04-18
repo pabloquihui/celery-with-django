@@ -26,7 +26,7 @@ app.config_from_object(settings, namespace='CELERY')
 
 # Celery Schedules - https://docs.celeryproject.org/en/stable/reference/celery.schedules.html
 
-app.autodiscover_tasks()
+app.autodiscover_tasks(['tasks_app'], force=True)
 
 # @app.task(bind=True)
 # def debug_task(self):

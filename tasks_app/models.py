@@ -119,7 +119,7 @@ class ScheduledTask(models.Model):
 #         verbose_name_plural = "Task Executions"
 
 class TaskExecution(models.Model):
-    scheduled_task = models.ForeignKey(ScheduledTask, on_delete=models.DO_NOTHING, null=True)
+    scheduled_task = models.ForeignKey(ScheduledTask, on_delete=models.CASCADE, null=True)
     task_id = models.CharField(max_length=255, default="")
     execution_date = models.DateField(default=timezone.now)
     execution_time = models.TimeField(default=timezone.now)
