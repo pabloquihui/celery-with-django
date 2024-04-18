@@ -124,11 +124,15 @@ class TaskExecution(models.Model):
     execution_date = models.DateField(default=timezone.now)
     execution_time = models.TimeField(default=timezone.now)
     status = models.CharField(max_length=255, default="")
-
+    
     # Add fields to store derived values
     task_name = models.CharField(max_length=255, default="")
     periodic_name = models.CharField(max_length=255, default="")
     execution_type = models.CharField(max_length=255, default="")
+    
+    chat_id = models.CharField(max_length=255, default="")
+    template = models.CharField(max_length=255, default="")
+    template_name_space = models.CharField(max_length=255, default="")
 
     def save(self, *args, **kwargs):
         if self.scheduled_task:
