@@ -137,7 +137,7 @@ cerely_result_serializer = 'json'
 cerely_task_serializer = 'json'
 celery_timezone = 'America/Monterrey'
 
-result_backend = 'redis://localhost:6379'
+CELERY_RESULT_BACKEND = 'redis://localhost:6379'
 
 #CELERY BEAT
 # CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'

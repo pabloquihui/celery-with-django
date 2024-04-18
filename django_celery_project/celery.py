@@ -15,19 +15,19 @@ app.conf.update(timezone = 'America/Monterrey')
 app.config_from_object(settings, namespace='CELERY')
 
 # Celery Beat Settings
-app.conf.beat_schedule = {
-    'send-mail-every-day-at-8': {
-        'task': 'tasks_app.tasks.periodic_task',
-        'schedule': crontab(hour=15, minute=10, day_of_month=3, month_of_year = 4),
-        #'args': (2,)
-    }
+# app.conf.beat_schedule = {
+#     'send-mail-every-day-at-8': {
+#         'task': 'tasks_app.tasks.periodic_task',
+#         'schedule': crontab(hour=15, minute=10, day_of_month=3, month_of_year = 4),
+#         #'args': (2,)
+#     }
     
-}
+# }
 
 # Celery Schedules - https://docs.celeryproject.org/en/stable/reference/celery.schedules.html
 
 app.autodiscover_tasks()
 
-@app.task(bind=True)
-def debug_task(self):
-    print(f'Request: {self.request!r}')
+# @app.task(bind=True)
+# def debug_task(self):
+#     print(f'Request: {self.request!r}')
