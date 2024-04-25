@@ -10,6 +10,7 @@ from django_celery_project.celery import app
 import redis
 # from tasks_app.models import ScheduledTask, TaskExecution
 import requests
+from celery.result import AsyncResult
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -84,9 +85,36 @@ def execution_data(id, status, chat_id, template_name, name_space):
     
 #     execution_data(id=task_id, status=task_status)
 #     logger.info(f"probando ejecucion")
+def check_time(end_datetime):
+    current_datetime = timezone.localtime()
+    logger.info(f"date now: {current_datetime}")
+    if current_datetime >= end_datetime:
+        logger.info(f"task out of date: {end_datetime} vs {current_datetime}")
+        return True
+    else:
+        logger.info(f"task in date: {end_datetime} vs {current_datetime}")
+        return False
+
+def checkMaxRuns(runs):
+    logger.info(f"max runs: {runs}")
+    return True
+
 @shared_task(bind=True)
-def template_msg(self, chat_id, template_name, template_namespace, localizable_params, task_id, *args, **kwargs):
+def template_msg(self, instance_id, chat_id, template_name, template_namespace, task_id, end_datetime, max_runs, *args, **kwargs):
     try:
+        from tasks_app.models import ScheduledTask
+        scheduledTask = ScheduledTask.objects.get(id=instance_id)
+        if end_datetime and check_time(end_datetime):
+            try:
+                scheduledTask.delete()
+                logger.info('Scheduled Task deleted due to OOD')
+                return
+            except Exception as e:
+                logger.error(f"Error deleting task: {e}")
+        if max_runs and checkMaxRuns(max_runs):
+            logger.info('Pending to delete Task due to times of execution') #TODO: contar max runs
+
+            
         logger.info(f"Trying execution with task id: {task_id}")
         url = 'http://127.0.0.1:8000/trigger-send-template-message/'
         data = {
@@ -94,7 +122,6 @@ def template_msg(self, chat_id, template_name, template_namespace, localizable_p
             'name_space': str(template_namespace),
             'element_name': str(template_name),
             'language_code': 'es_mx',
-            'localizable_params': []
         }
 
         response = requests.post(url, data=data)
@@ -114,6 +141,11 @@ def template_msg(self, chat_id, template_name, template_namespace, localizable_p
     logger.info(f"The chat id is: {chat_id}")
     execution_data(id=task_id, status=task_status, chat_id=chat_id, template_name=template_name, name_space=template_namespace)
     
+# Crear un modelo nuevo con lista de chats para auto crear scheduledtasks
+# Modelo relacion lista de chats id y scheduledtasks
+
+
+# Crear modelo con lista de chatsid, params del scheduledtask, al guardar se deberian autocrear instancias de scheduledtask
 
 
 # @app.on_after_configure.connect
