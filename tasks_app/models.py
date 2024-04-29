@@ -42,7 +42,9 @@ class ScheduledTask(models.Model):
     redbeat_key = models.CharField(max_length=255, blank=True)
     task_id = models.UUIDField(default=uuid.uuid4, editable=False) #TODO: Cambiar esto a id
     end_datetime = models.DateTimeField(null=True, blank=True)
+    execution_count = models.IntegerField(default=0)
     max_executions = models.PositiveIntegerField(null=True, blank=True)
+    on_schedule = models.BooleanField(default=True)
 
     def save_to_redbeat(self):
         try:
@@ -58,21 +60,20 @@ class ScheduledTask(models.Model):
                 )
             else:
                 raise ValueError("Invalid task type")
-                
-            task_id_str = str(self.task_id)
-            
-            task_path = f"tasks_app.tasks.{self.task_name}" #TODO: Cambiar a env variables
-            entry = RedBeatSchedulerEntry(
-                app=current_app,
-                name=self.custom_name,
-                task=task_path,
-                schedule=schedule,
-                args=[self.id, self.chat_id, self.template_name, self.template_namespace, task_id_str, self.end_datetime, self.max_executions],
-            )
-            entry.save()
-            self.redbeat_key = entry.key  # Save the RedBeat key
-            self.save()  # Save the model instance with the RedBeat key
-            logger.info('Task created successfully')
+            if self.on_schedule:    
+                task_id_str = str(self.task_id)
+                task_path = f"tasks_app.tasks.{self.task_name}" #TODO: Cambiar a env variables
+                entry = RedBeatSchedulerEntry(
+                    app=current_app,
+                    name=self.custom_name,
+                    task=task_path,
+                    schedule=schedule,
+                    args=[self.id, self.chat_id, self.template_name, self.template_namespace, task_id_str, self.end_datetime, self.max_executions],
+                )
+                entry.save()
+                self.redbeat_key = entry.key  # Save the RedBeat key
+                self.save()  # Save the model instance with the RedBeat key
+                logger.info('Task created successfully')
         except Exception as e:
             logger.error("Failed to save task to RedBeat: %s", e)
 

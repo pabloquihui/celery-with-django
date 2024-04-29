@@ -1,9 +1,11 @@
 from django.contrib import admin
 from .models import *
 class ScheduledTaskAdmin(admin.ModelAdmin):
-    list_display = ('custom_name', 'task_id', 'bulk_chat_model_id', 'task_name', 'task_type', 'crontab_schedule_display', 'interval_seconds', 'template_name', 'template_namespace', 'chat_id', 'redbeat_key')
+    list_display = ('custom_name', 'task_id', 'bulk_chat_model_id', 'execution_count', 'task_name', 'task_type', 'crontab_schedule_display', 'interval_seconds', 'template_name', 'template_namespace', 'chat_id', 'redbeat_key')
     search_fields = ('task_name', 'template_name', 'template_namespace', 'chat_id', 'redbeat_key')
     exclude = ('redbeat_key',)
+    readonly_fields = ('execution_count',)
+    
     def save_model(self, request, obj, form, change):
         """Override save_model method to call save_to_redbeat."""
         obj.save_to_redbeat()
@@ -29,7 +31,6 @@ class ChatScheduledTaskAdmin(admin.ModelAdmin):
     search_fields = ('chat_ids', 'task_name', 'custom_name', 'template_name', 'task_type')  # Campos por los que se puede buscar
     list_filter = ('chat_ids', 'task_name', 'template_name', 'task_type') 
     fields = ['chat_ids', 'task_name', 'custom_name', 'template_name', 'template_namespace', 'task_type', 'interval_seconds', 'crontab_minute', 'crontab_hour', 'crontab_day_of_month', 'crontab_month_of_year', 'crontab_day_of_week']
-    
     def get_readonly_fields(self, request, obj=None):
         readonly_fields = list(super().get_readonly_fields(request, obj))
         if obj:
