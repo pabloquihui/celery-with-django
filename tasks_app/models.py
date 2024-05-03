@@ -143,6 +143,11 @@ class ChatScheduledTask(models.Model):
     crontab_day_of_month = models.CharField(max_length=64, blank=True, null=True, help_text="1-31, *, */2, 1-15/3, etc.", default="*")
     crontab_month_of_year = models.CharField(max_length=64, blank=True, null=True, help_text="1-12, *, */2, 1-6/2, etc.", default="*")
     crontab_day_of_week = models.CharField(max_length=64, blank=True, null=True, help_text="0-6 (Sunday=0), *, */2, 0-3, etc.", default="*")
+    end_datetime = models.DateTimeField(null=True, blank=True)
+    execution_count = models.IntegerField(default=0)
+    max_executions = models.PositiveIntegerField(null=True, blank=True)
+    on_schedule = models.BooleanField(default=True)
+    
     
     def crontab_schedule_display(self):
         parts = [
@@ -179,7 +184,10 @@ def update_or_create_scheduled_tasks(sender, instance, created, **kwargs):
                 crontab_day_of_month=instance.crontab_day_of_month,
                 crontab_month_of_year=instance.crontab_month_of_year,
                 crontab_day_of_week=instance.crontab_day_of_week,
-                bulk_chat_model_id=instance.id
+                bulk_chat_model_id=instance.id,
+                end_datetime = instance.end_datetime,
+                max_executions = instance.max_executions,
+                on_schedule = instance.on_schedule,
             ).save_to_redbeat()
             i += 1
     else:
@@ -195,46 +203,7 @@ def update_or_create_scheduled_tasks(sender, instance, created, **kwargs):
             scheduled_task.crontab_day_of_month = instance.crontab_day_of_month
             scheduled_task.crontab_month_of_year = instance.crontab_month_of_year
             scheduled_task.crontab_day_of_week = instance.crontab_day_of_week
+            scheduled_task.end_datetime = instance.end_datetime
+            scheduled_task.max_executions = instance.max_executions
+            scheduled_task.on_schedule = instance.on_schedule
             scheduled_task.save_to_redbeat()
-
-class Tasks(models.Model):
-    task_name = models.CharField(max_length=255)
-    task_code = models.CharField(max_length=1024, blank=True)
-    inputs = models.CharField(max_length=1024, blank=True)
-    
-    def create_task(self):
-        # Generate the task function code
-        task_function_code = self.generate_task_function_code()
-
-        # Write the task function code to tasks.py file
-        self.write_task_function_to_file(task_function_code)
-
-    def generate_task_function_code(self):
-        # Define the task function code dynamically
-        function_name = f"{self.task_name}_task"
-        input_parameters = ', '.join([f"{elem.strip()}" for elem in self.inputs.split(',')])
-        task_function_code = f"""
-@shared_task(bind=True)
-def {function_name}(self, {input_parameters}, *args, **kwargs):
-    # Execute the task code provided
-    {self.task_code}
-
-    # Log inputs (if any)
-    if self.inputs:
-        logger.info(f"Task inputs: {self.inputs}")
-"""
-        return task_function_code
-
-    def write_task_function_to_file(self, task_function_code):
-        # Define the path to the tasks.py file
-        tasks_file_path = os.path.join(os.path.dirname(__file__), 'tasks.py')
-        # Write the task function code to tasks.py file
-        with open(tasks_file_path, 'a') as file:
-            file.write('\n\n')
-            file.write(task_function_code)
-
-    # def save_to_redis(self, task_function_code):
-    #     redis_conn = redis.StrictRedis(host='localhost', port=6379, db=0)
-    #     redis_conn.hset('tasks', self.task_name, task_function_code)
-    
-# Crear modelo con lista de chatsid, params del scheduledtask, al guardar se deberian autocrear instancias de scheduledtask
