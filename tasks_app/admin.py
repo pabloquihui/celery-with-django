@@ -14,6 +14,26 @@ class ScheduledTaskAdmin(admin.ModelAdmin):
         for obj in queryset:
             obj.delete()
 
+class MonitoringTaskAdmin(admin.ModelAdmin):
+    list_display = ('custom_name', 'task_id', 'execution_count', 'task_name', 'task_type', 'crontab_schedule_display', 'interval_seconds', 'redbeat_key')
+    search_fields = ('task_name', 'redbeat_key')
+    exclude = ('redbeat_key',)
+    readonly_fields = ('execution_count',)
+    
+    def save_model(self, request, obj, form, change):
+        """Override save_model method to call save_to_redbeat."""
+        obj.save_to_redbeat()
+        
+    def delete_queryset(self, request, queryset):
+        for obj in queryset:
+            obj.delete()
+
+class MonitorExecutionAdmin(admin.ModelAdmin):
+    list_display = ['task_name', 'task_id', 'periodic_name', 'execution_type', 'execution_date', 'execution_time', 'status']
+    readonly_fields = ['task_name', 'task_id', 'periodic_name', 'execution_type', 'execution_date', 'execution_time', 'status']
+    list_filter = ('task_id', 'task_name', 'periodic_name', 'execution_date', 'execution_time', 'status', 'execution_type')
+
+
 class TaskExecutionAdmin(admin.ModelAdmin):
     list_display = ['task_name', 'task_id', 'periodic_name', 'chat_id', 'template', 'template_name_space', 'execution_type', 'execution_date', 'execution_time', 'status']
     readonly_fields = ['task_name', 'task_id', 'periodic_name', 'execution_type', 'execution_date', 'execution_time', 'status']
@@ -36,4 +56,6 @@ class ChatScheduledTaskAdmin(admin.ModelAdmin):
     
 admin.site.register(ScheduledTask, ScheduledTaskAdmin)
 admin.site.register(TaskExecution, TaskExecutionAdmin)
+admin.site.register(MonitoringTask, MonitoringTaskAdmin)
+admin.site.register(MonitorExecution, MonitorExecutionAdmin)
 admin.site.register(ChatScheduledTask, ChatScheduledTaskAdmin)

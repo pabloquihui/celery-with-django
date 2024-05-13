@@ -1,11 +1,25 @@
-from django.shortcuts import render
-from django.http.response import HttpResponse
-# from .tasks import test_func
-from django.http import JsonResponse
-import redis
+from rest_framework import viewsets
+from .models import *
+from .serializers import *
 
-# Create your views here.
-# def test(request):
-#     test_func.delay()
-#     return HttpResponse("Done")
+class ScheduledMsgViewSet(viewsets.ModelViewSet):
+    queryset = ScheduledTask.objects.all()
+    serializer_class = ScheduledMsgSerializer
+
+class ChatScheduledTaskViewSet(viewsets.ModelViewSet):
+    queryset = ChatScheduledTask.objects.all()
+    serializer_class = ChatScheduledTaskSerializer
+    
+class ChatTaskExecutionViewSet(viewsets.ModelViewSet):
+    queryset = TaskExecution.objects.all()
+    serializer_class = ChatTaskExecutionSerializer
+
+class MonitorExecutionViewSet(viewsets.ModelViewSet):
+    queryset = MonitorExecution.objects.all()
+    serializer_class = MonitorExecutionSerializer   
+
+class MonitorTaskViewSet(viewsets.ModelViewSet):
+    queryset = MonitoringTask.objects.all()
+    serializer_class = MonitorTaskSerializer      
+ 
 

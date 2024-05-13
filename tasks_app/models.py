@@ -174,7 +174,7 @@ def update_or_create_scheduled_tasks(sender, instance, created, **kwargs):
             ScheduledTask.objects.create(
                 chat_id=chat_id.strip(),
                 task_name=instance.task_name,
-                custom_name=instance.custom_name + f"_{i}",  # No es necesario agregar un sufijo único
+                custom_name=instance.custom_name + f"_{i}", 
                 template_name=instance.template_name,
                 template_namespace=instance.template_namespace,
                 task_type=instance.task_type,
@@ -192,6 +192,7 @@ def update_or_create_scheduled_tasks(sender, instance, created, **kwargs):
             i += 1
     else:
         scheduled_tasks = ScheduledTask.objects.filter(bulk_chat_model_id=instance.id)
+        chat_ids = []
         for scheduled_task in scheduled_tasks:
             scheduled_task.task_name = instance.task_name
             scheduled_task.template_name = instance.template_name
@@ -207,3 +208,128 @@ def update_or_create_scheduled_tasks(sender, instance, created, **kwargs):
             scheduled_task.max_executions = instance.max_executions
             scheduled_task.on_schedule = instance.on_schedule
             scheduled_task.save_to_redbeat()
+            chat_ids.append(scheduled_task.chat_id)
+        
+        for id in instance.chat_ids.split(','):
+            if id not in chat_ids:
+                ScheduledTask.objects.create(
+                chat_id=id.strip(),
+                task_name=instance.task_name,
+                custom_name=instance.custom_name, 
+                template_name=instance.template_name,
+                template_namespace=instance.template_namespace,
+                task_type=instance.task_type,
+                interval_seconds=instance.interval_seconds,
+                crontab_minute=instance.crontab_minute,
+                crontab_hour=instance.crontab_hour,
+                crontab_day_of_month=instance.crontab_day_of_month,
+                crontab_month_of_year=instance.crontab_month_of_year,
+                crontab_day_of_week=instance.crontab_day_of_week,
+                bulk_chat_model_id=instance.id,
+                end_datetime = instance.end_datetime,
+                max_executions = instance.max_executions,
+                on_schedule = instance.on_schedule,
+                ).save_to_redbeat()
+                
+                
+                
+class MonitoringTask(models.Model):
+    TASK_TYPE_CHOICES = [
+        ('interval', 'Interval'),
+        ('crontab', 'Crontab'),
+    ]
+
+    id = models.AutoField(primary_key=True)
+    task_id = models.UUIDField(default=uuid.uuid4, editable=False) #TODO: Cambiar esto a id
+    task_name = models.CharField(max_length=255)
+    custom_name = models.CharField(max_length=255, default='custom')
+    
+    task_type = models.CharField(max_length=10, choices=TASK_TYPE_CHOICES, default='interval')
+    interval_seconds = models.IntegerField(default=60)
+    crontab_minute = models.CharField(max_length=64, blank=True, null=True, help_text="0-59, *, */2, 0-30/5, etc.", default="*")
+    crontab_hour = models.CharField(max_length=64, blank=True, null=True, help_text="0-23, *, */2, 0-12/3, etc.", default="*")
+    crontab_day_of_month = models.CharField(max_length=64, blank=True, null=True, help_text="1-31, *, */2, 1-15/3, etc.", default="*")
+    crontab_month_of_year = models.CharField(max_length=64, blank=True, null=True, help_text="1-12, *, */2, 1-6/2, etc.", default="*")
+    crontab_day_of_week = models.CharField(max_length=64, blank=True, null=True, help_text="0-6 (Sunday=0), *, */2, 0-3, etc.", default="*")
+    redbeat_key = models.CharField(max_length=255, blank=True)
+    
+    end_datetime = models.DateTimeField(null=True, blank=True)
+    execution_count = models.IntegerField(default=0)
+    max_executions = models.PositiveIntegerField(null=True, blank=True)
+    on_schedule = models.BooleanField(default=True)
+
+    def save_to_redbeat(self):
+        try:
+            if self.task_type == 'interval':
+                schedule = celery_schedule(run_every=self.interval_seconds)
+            elif self.task_type == 'crontab':
+                schedule = crontab(
+                    minute=self.crontab_minute,
+                    hour=self.crontab_hour,
+                    day_of_month=self.crontab_day_of_month,
+                    month_of_year=self.crontab_month_of_year,
+                    day_of_week=self.crontab_day_of_week,
+                )
+            else:
+                raise ValueError("Invalid task type")
+            if self.on_schedule:    
+                task_id_str = str(self.task_id)
+                task_path = f"tasks_app.tasks.{self.task_name}" #TODO: Cambiar a env variables
+                entry = RedBeatSchedulerEntry(
+                    app=current_app,
+                    name=self.custom_name,
+                    task=task_path,
+                    schedule=schedule,
+                    args=[self.id, task_id_str, self.end_datetime, self.max_executions],
+                )
+                entry.save()
+                self.redbeat_key = entry.key  # Save the RedBeat key
+                self.save()  # Save the model instance with the RedBeat key
+                logger.info('Monitoring task created successfully')
+        except Exception as e:
+            logger.error("Failed to save task to RedBeat: %s", e)
+
+    def delete_from_redbeat(self):
+        try:
+            entry = RedBeatSchedulerEntry.from_key(key=self.redbeat_key, app=current_app)
+            entry.delete()
+            logger.info(f'Task deleted successfully')
+        except Exception as e:
+            logger.error("Failed to delete task %s from RedBeat: %s", self.task_name, e)
+            
+    def delete(self, *args, **kwargs):
+        """Override the delete method to call delete_from_redbeat."""
+        TaskExecution.objects.filter(scheduled_task=self).update(scheduled_task=None)
+        self.delete_from_redbeat()
+        super().delete(*args, **kwargs)
+        
+    def crontab_schedule_display(self):
+        parts = [
+            self.crontab_minute,
+            self.crontab_hour,
+            self.crontab_day_of_month,
+            self.crontab_month_of_year,
+            self.crontab_day_of_week
+        ]
+        return ":".join(part for part in parts if part)
+    
+class MonitorExecution(models.Model):
+    monitor_task = models.ForeignKey(MonitoringTask, on_delete=models.CASCADE, null=True)
+    task_id = models.CharField(max_length=255, default="")
+    execution_date = models.DateField(default=timezone.now)
+    execution_time = models.TimeField(default=timezone.now)
+    status = models.CharField(max_length=255, default="")
+    
+    # Add fields to store derived values
+    task_name = models.CharField(max_length=255, default="")
+    periodic_name = models.CharField(max_length=255, default="")
+    execution_type = models.CharField(max_length=255, default="")
+    
+    def save(self, *args, **kwargs):
+        if self.monitor_task:
+            # Populate derived values from ScheduledTask
+            self.task_name = self.monitor_task.custom_name
+            self.periodic_name = self.monitor_task.task_name
+            self.execution_type = self.monitor_task.task_type
+        super().save(*args, **kwargs)
+        
